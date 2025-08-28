@@ -1,0 +1,12 @@
+{
+  "name": "visual-test-seleniumjs-plugin-examples",
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "test": "bdy vt exec \"node index.js\""
+  },
+  "dependencies": {
+    "bdy": "1.9.4",
+    "selenium-webdriver": "4.29.0"
+  }
+}

@@ -1,0 +1,47 @@
+{
+  "name": "@buddy-works/visual-tests-selenium",
+  "version": "0.1.2",
+  "description": "Buddy Visual Test SeleniumJS Plugin",
+  "type": "module",
+  "main": "dist/index.js",
+  "files": [
+    "dist"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "lint": "eslint \"**/*\"",
+    "format": "prettier --write \"**/*.{js,ts,json,md}\"",
+    "build": "node build.js"
+  },
+  "keywords": [
+    "selenium",
+    "visual testing",
+    "regression"
+  ],
+  "author": "Bartosz Wróbel",
+  "license": "MIT",
+  "devDependencies": {
+    "@eslint/js": "9.22.0",
+    "@types/selenium-webdriver": "4.1.28",
+    "@typescript-eslint/eslint-plugin": "8.26.1",
+    "@typescript-eslint/parser": "8.26.1",
+    "esbuild": "0.25.1",
+    "esbuild-node-externals": "1.18.0",
+    "eslint": "9.22.0",
+    "eslint-config-prettier": "10.1.1",
+    "eslint-plugin-prettier": "5.2.3",
+    "eslint-plugin-unicorn": "57.0.0",
+    "prettier": "3.5.3",
+    "typescript": "5.8.2",
+    "typescript-eslint": "8.26.1"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/types/index.d.ts",
+      "import": "./dist/index.mjs",
+      "require": "./dist/index.js"
+    }
+  }
+}
