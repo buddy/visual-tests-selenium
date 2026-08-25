@@ -1,6 +1,6 @@
 {
   "name": "@buddy-works/visual-tests-selenium",
-  "version": "0.1.2",
+  "version": "1.0.0",
   "description": "Buddy Visual Test SeleniumJS Plugin",
   "keywords": [
     "buddy",
