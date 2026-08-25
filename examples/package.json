@@ -1,12 +1,19 @@
 {
   "name": "visual-test-seleniumjs-plugin-examples",
   "version": "0.1.0",
+  "description": "Buddy Visual Test SeleniumJS Plugin Examples",
   "type": "module",
   "scripts": {
-    "test": "bdy vt exec \"node index.js\""
+    "test": "bdy tests visual session create \"node index.js\""
   },
   "dependencies": {
-    "bdy": "1.9.4",
-    "selenium-webdriver": "4.29.0"
+    "@buddy-works/visual-tests-selenium": "link:..",
+    "bdy": "1.24.0",
+    "selenium-webdriver": "4.35.0"
+  },
+  "pnpm": {
+    "overrides": {
+      "@buddy-works/visual-tests-selenium": "link:.."
+    }
   }
 }

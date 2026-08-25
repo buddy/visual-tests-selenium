@@ -1,27 +1,25 @@
 import { Builder } from "selenium-webdriver";
-import VisualTestsPlugin from "../dist/index.mjs";
+import VisualTestsPlugin from "@buddy-works/visual-tests-selenium";
 
-(async function simpleTest() {
-  const driver = await new Builder().forBrowser("chrome").build();
-  const visualTests = new VisualTestsPlugin(driver);
+const driver = await new Builder().forBrowser("chrome").build(),
+  visualTests = new VisualTestsPlugin(driver);
 
-  try {
-    await driver.get("https://buddy.works/blog");
-    await visualTests.takeSnap("blog", {
-      devices: [
-        {
-          viewport: {
-            width: 1024,
-            height: 768,
-          },
+try {
+  await driver.get("https://buddy.works");
+  await visualTests.takeSnap("home", {
+    colorScheme: "LIGHT",
+    cssIgnores: [".cookie-notice", ".ad-banner"],
+    devices: [
+      {
+        viewport: {
+          height: 768,
+          width: 1024,
         },
-      ],
-      fullPage: true,
-      colorScheme: "LIGHT",
-      enableJavaScript: true,
-      cssIgnores: [".cookie-notice", ".ad-banner"],
-    });
-  } finally {
-    await driver.quit();
-  }
-})();
+      },
+    ],
+    enableJavaScript: true,
+    fullPage: true,
+  });
+} finally {
+  await driver.quit();
+}

@@ -1,5 +1,11 @@
-import { WebDriver, IWebDriverOptionsCookie } from "selenium-webdriver";
-import { Snapshot, SnapshotOptions } from "./types";
+import type { IWebDriverOptionsCookie, WebDriver } from "selenium-webdriver";
+import type { Snapshot, SnapshotOptions, VisualTestsPluginOptions } from "./types";
+
+interface ParseDomResult {
+  html: string;
+  resources: Record<string, unknown>[];
+}
+
 /**
  * Plugin for capturing snapshots of web pages for visual testing.
  */
@@ -11,15 +17,15 @@ export class VisualTestsPlugin {
   /**
    * Creates a new instance of VisualTestsPlugin
    * @param {WebDriver} driver - The Selenium WebDriver instance
-   * @param {boolean} [suppressErrors=true] - Whether to suppress errors from plugin methods
+   * @param {VisualTestsPluginOptions} [options={}] - The plugin options
    * @throws {Error} When driver is not provided
    */
-  constructor(driver: WebDriver, suppressErrors = true) {
+  constructor(driver: WebDriver, options: VisualTestsPluginOptions = {}) {
     if (!driver) {
       throw new Error("WebDriver instance is required");
     }
     this.driver = driver;
-    this.suppressErrors = suppressErrors;
+    this.suppressErrors = options.suppressErrors ?? true;
   }
 
   /**
@@ -28,7 +34,9 @@ export class VisualTestsPlugin {
    * @returns {Promise<void>}
    */
   private async fetchParseDom(): Promise<void> {
-    if (this.parseDomScript) return;
+    if (this.parseDomScript) {
+      return;
+    }
 
     try {
       const response = await fetch("http://localhost:1337/parseDom.js");
@@ -38,12 +46,106 @@ export class VisualTestsPlugin {
       this.parseDomScript = await response.text();
     } catch (error) {
       if (!this.suppressErrors) {
-        const error_ =
-          error instanceof Error
-            ? new Error(`Failed to fetch parseDom.js: ${error.message}`)
-            : new Error(`Failed to fetch parseDom.js: ${String(error)}`);
-        throw error_;
+        throw new Error(`Failed to fetch parseDom.js: ${String(error)}`, { cause: error });
       }
+    }
+  }
+
+  /**
+   * Injects the parseDom script into the page unless it is already present
+   * @private
+   * @returns {Promise<void>}
+   */
+  private async injectParseDom(): Promise<void> {
+    const isScriptInjected = await this.driver.executeScript(
+      `return typeof window.SNAPSHOT !== "undefined"`,
+    );
+    if (!isScriptInjected) {
+      await this.driver.executeScript(this.parseDomScript!);
+    }
+  }
+
+  /**
+   * Reads the page cookies when cloning is requested
+   * @private
+   * @param {boolean} [cloneCookies] - Whether cookies should be cloned
+   * @returns {Promise<IWebDriverOptionsCookie[]>} The page cookies, or an empty array
+   */
+  private collectCookies(cloneCookies?: boolean): Promise<IWebDriverOptionsCookie[]> {
+    if (cloneCookies) {
+      return this.driver.manage().getCookies();
+    }
+    return Promise.resolve([]);
+  }
+
+  /**
+   * Builds the snapshot payload from the current page state
+   * @private
+   * @param {string} name - The name of the snapshot
+   * @param {SnapshotOptions} options - The snapshot options
+   * @returns {Promise<Snapshot>} The snapshot data
+   */
+  private async buildSnapshot(
+    name: string,
+    {
+      devices,
+      fullPage,
+      colorScheme,
+      enableJavaScript,
+      injectStyles,
+      resourceDiscoveryTimeout,
+      cloneCookies,
+      cssIgnores,
+      xpathIgnores,
+    }: SnapshotOptions,
+  ): Promise<Snapshot> {
+    const { html, resources } = (await this.driver.executeScript(
+      `return window.SNAPSHOT.parseDom(document, arguments[0]);`,
+      enableJavaScript,
+    )) as ParseDomResult;
+
+    return {
+      colorScheme,
+      cookies: await this.collectCookies(cloneCookies),
+      cssIgnores,
+      devices,
+      enableJavaScript,
+      fullPage,
+      html,
+      injectStyles,
+      name,
+      resourceDiscoveryTimeout,
+      resources,
+      title: await this.driver.getTitle(),
+      url: await this.driver.getCurrentUrl(),
+      version: 1,
+      xpathIgnores,
+    };
+  }
+
+  /**
+   * Sends the snapshot to the server
+   * @private
+   * @param {Snapshot} snapshot - The snapshot data
+   * @returns {Promise<void>}
+   * @throws {Error} When the server responds with a non-OK status
+   */
+  private async sendSnapshot(snapshot: Snapshot): Promise<void> {
+    const response = await fetch("http://localhost:1337/snapshot", {
+      body: JSON.stringify(snapshot),
+      cache: "no-cache",
+      credentials: "same-origin",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      method: "POST",
+      mode: "cors",
+      redirect: "follow",
+      referrerPolicy: "no-referrer",
+    });
+
+    if (!response.ok) {
+      throw new Error(`Server responded with status ${response.status}`);
     }
   }
 
@@ -56,20 +158,7 @@ export class VisualTestsPlugin {
    * @throws {Error} When parseDom.js fails to load and suppressErrors is false
    * @throws {Error} When snapshot fails to be sent to server
    */
-  async takeSnap(
-    name: string,
-    {
-      devices,
-      fullPage,
-      colorScheme,
-      enableJavaScript,
-      injectStyles,
-      resourceDiscoveryTimeout,
-      cloneCookies,
-      cssIgnores,
-      xpathIgnores,
-    }: SnapshotOptions = {},
-  ): Promise<Snapshot | void> {
+  async takeSnap(name: string, options: SnapshotOptions = {}): Promise<Snapshot | void> {
     if (!name || typeof name !== "string") {
       throw new Error("Snapshot name is required and must be a string");
     }
@@ -80,61 +169,10 @@ export class VisualTestsPlugin {
       return;
     }
 
-    const isScriptInjected = await this.driver.executeScript(
-      `return typeof window.SNAPSHOT !== "undefined"`,
-    );
+    await this.injectParseDom();
 
-    if (!isScriptInjected) {
-      await this.driver.executeScript(this.parseDomScript!);
-    }
-
-    const url = await this.driver.getCurrentUrl();
-    const title = await this.driver.getTitle();
-
-    let cookies: IWebDriverOptionsCookie[] = [];
-    if (cloneCookies) {
-      cookies = await this.driver.manage().getCookies();
-    }
-
-    const result = (await this.driver.executeScript(`
-      return window.SNAPSHOT.parseDom(document, ${enableJavaScript});
-    `)) as { html: string; resources: Record<string, unknown>[] };
-    const { html, resources } = result;
-
-    const snapshot: Snapshot = {
-      name,
-      url,
-      title,
-      html,
-      resources,
-      devices,
-      colorScheme,
-      resourceDiscoveryTimeout,
-      fullPage,
-      enableJavaScript,
-      injectStyles,
-      cookies: cloneCookies ? cookies : [],
-      cssIgnores,
-      xpathIgnores,
-      version: 1,
-    };
-
-    const response = await fetch("http://localhost:1337/snapshot", {
-      method: "POST",
-      mode: "cors",
-      cache: "no-cache",
-      credentials: "same-origin",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      redirect: "follow",
-      referrerPolicy: "no-referrer",
-      body: JSON.stringify(snapshot),
-    });
-
-    if (!response.ok) {
-      throw new Error(`Server responded with status ${response.status}`);
-    }
+    const snapshot = await this.buildSnapshot(name, options);
+    await this.sendSnapshot(snapshot);
 
     return snapshot;
   }

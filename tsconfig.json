@@ -7,7 +7,8 @@
     "declaration": true,
     "sourceMap": true,
     "rootDir": "plugin",
-    "outDir": "dist"
+    "outDir": "dist",
+    "lib": ["DOM", "ES2022"]
   },
   "include": ["plugin/**/*"]
 }

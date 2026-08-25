@@ -4,8 +4,9 @@ A Selenium WebDriver (JavaScript) plugin for performing visual testing using Bud
 
 ## Requirements
 
-- Node.js >= 20
-- Selenium WebDriver >= 4.16.0
+- **Node.js** `>=20`
+- **Selenium WebDriver** `>=4.16.0`
+- **[bdy CLI](https://www.npmjs.com/package/bdy)** — tests must be run through the CLI within a visual testing session, e.g. `bdy tests visual session create "node index.js"`
 
 ## Installation
 
@@ -13,19 +14,48 @@ A Selenium WebDriver (JavaScript) plugin for performing visual testing using Bud
 npm install @buddy-works/visual-tests-selenium
 ```
 
-## Basic example
+## Usage
+
+### ESM (`import`)
 
 ```javascript
 import { Builder } from "selenium-webdriver";
 import VisualTestsPlugin from "@buddy-works/visual-tests-selenium";
 
-(async function simpleTest() {
+const driver = await new Builder().forBrowser("chrome").build();
+const visualTests = new VisualTestsPlugin(driver);
+
+try {
+  await driver.get("https://example.com");
+
+  await visualTests.takeSnap("homepage", {
+    devices: [{ viewport: { width: 1366, height: 768 } }],
+    colorScheme: "DARK",
+    cloneCookies: true,
+  });
+} finally {
+  await driver.quit();
+}
+```
+
+### CommonJS (`require`)
+
+```javascript
+const { Builder } = require("selenium-webdriver");
+const { default: VisualTestsPlugin } = require("@buddy-works/visual-tests-selenium");
+
+(async () => {
   const driver = await new Builder().forBrowser("chrome").build();
   const visualTests = new VisualTestsPlugin(driver);
 
   try {
-    await driver.get("https://buddy.works/blog");
-    await visualTests.takeSnap("example-homepage");
+    await driver.get("https://example.com");
+
+    await visualTests.takeSnap("homepage", {
+      devices: [{ viewport: { width: 1366, height: 768 } }],
+      colorScheme: "DARK",
+      cloneCookies: true,
+    });
   } finally {
     await driver.quit();
   }
@@ -41,8 +71,12 @@ Example usage of the plugin can be found in the `examples/` directory:
 pnpm i
 # Build plugin
 pnpm run build
+# Create link for plugin
+pnpm link
 # Go to examples folder
 cd examples
+# Link plugin
+pnpm link @buddy-works/visual-tests-selenium
 # Install examples dependencies
 pnpm i
 # Add enviroment variables with token
